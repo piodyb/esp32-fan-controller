@@ -7,7 +7,7 @@
 #include <U8g2lib.h>
 #include <Adafruit_NeoPixel.h>
 
-// --- PINY UKŁADU ---
+// --- SYSTEM PINS ---
 #define MOSFET_PIN      4       
 #define FAN_PWM_PIN     10      
 #define TEMP_SENSOR_PIN 3       
@@ -39,21 +39,21 @@ bool isMosfetOn = false;
 unsigned long pauseEndTime = 0;
 bool isPaused = false;
 
-// Tryby ARGB: 0 = Auto (temperatura), 1 = Stały kolor, 2 = Tęcza
+// ARGB Modes: 0 = Auto (temperature), 1 = Solid color, 2 = Rainbow
 int rgbMode = 0;
 uint8_t customR = 0;
 uint8_t customG = 255;
 uint8_t customB = 255;
 int rgbBrightness = 150;
 
-// Konfiguracja animacji OLED
+// OLED animation configuration
 bool enableAnimations = true;
 
-// Obsługa wygaszania OLED (1 minuta bezczynności, włączenie na 10 min)
+// OLED blanking handling (1 minute of inactivity, turns on for 10 min)
 unsigned long oledWakeUntil = 0; 
 bool isOledAwake = true;
 
-// --- HISTORIA WYKRESU ---
+// --- CHART HISTORY ---
 const int HISTORY_SIZE = 60;
 float tempHistory[HISTORY_SIZE];
 int historyCount = 0;
@@ -75,7 +75,7 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  // Wypełnienie historii na start
+  // Fill history on start
   for (int i = 0; i < HISTORY_SIZE; i++) {
     tempHistory[i] = -999.0;
   }
@@ -120,7 +120,7 @@ void setup() {
   wm.setTimeout(180); 
 
   if (!wm.autoConnect("ESP32-Fan-Config", "12345678")) {
-    Serial.println("Błąd połączenia lub timeout. Restart...");
+    Serial.println("Connection error or timeout. Restarting...");
     delay(3000);
     ESP.restart();
   }
@@ -137,7 +137,7 @@ void setup() {
   }
   delay(300);
 
-  Serial.println("\nPołączono z WiFi!");
+  Serial.println("\nConnected to WiFi!");
   Serial.print("IP: ");
   Serial.println(WiFi.localIP());
 
@@ -163,7 +163,7 @@ void loop() {
     isPaused = false;
   }
 
-  // Pomiary temperatury co 1s
+  // Temperature measurements every 1s
   if (currentMillis - lastTempRequest >= 1000) {
     currentTemp = sensors.getTempCByIndex(0);
     sensors.requestTemperatures();
@@ -172,10 +172,10 @@ void loop() {
     updateRgbEffect();
   }
 
-  // Rejestracja historii wykresu co 60 sekund
+  // Chart history registration every 60 seconds
   if (currentMillis - lastHistorySample >= 60000 || historyCount == 0) {
     lastHistorySample = currentMillis;
-    if (currentTemp > -50.0 && currentTemp < 125.0) { // Omijamy odczyty -127.0 (błąd czujnika)
+    if (currentTemp > -50.0 && currentTemp < 125.0) { // Skip -127.0 readings (sensor error)
       if (historyCount < HISTORY_SIZE) {
         tempHistory[historyCount++] = currentTemp;
       } else {
@@ -357,10 +357,10 @@ void updateRgbEffect() {
   strip.show();
 }
 
-// Funkcja generująca lekki wykres SVG
+// Function generating a lightweight SVG chart
 String generateSvgChart() {
   if (historyCount < 2) {
-    return "<div style='text-align:center;padding:30px;color:#777;font-size:14px;'>Zbieranie danych (potrzeba min. 2 minut)...</div>";
+    return "<div style='text-align:center;padding:30px;color:#777;font-size:14px;'>Collecting data (min. 2 minutes required)...</div>";
   }
 
   float minT = 100.0;
@@ -405,23 +405,23 @@ String generateSvgChart() {
 
   svg += "<text x='" + String(padL) + "' y='" + String(h - 4) + "' fill='#64748b' font-size='11'>-60 min</text>";
   svg += "<text x='" + String(padL + plotW / 2) + "' y='" + String(h - 4) + "' fill='#64748b' font-size='11' text-anchor='middle'>-30 min</text>";
-  svg += "<text x='" + String(w - padR) + "' y='" + String(h - 4) + "' fill='#64748b' font-size='11' text-anchor='end'>teraz</text>";
+  svg += "<text x='" + String(w - padR) + "' y='" + String(h - 4) + "' fill='#64748b' font-size='11' text-anchor='end'>now</text>";
   svg += "</svg>";
   
   return svg;
 }
 
-// Nowy, kafelkowy Dashboard
+// New, tiled Dashboard
 void handleRoot() {
   String html = "<!DOCTYPE html><html lang='pl'><head><meta charset='UTF-8'>";
   html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
   
-  // Automatyczne odświeżanie podczas pauzy, aby widzieć licznik
+  // Automatic refresh during pause to see the counter
   if (isPaused) {
     html += "<meta http-equiv='refresh' content='2'>";
   }
 
-  html += "<title>Sterownik Wentylatora</title>";
+  html += "<title>Fan Controller</title>";
   html += "<style>";
   html += "* { box-sizing: border-box; margin: 0; padding: 0; }";
   html += "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e1e7ef; padding: 20px; }";
@@ -450,80 +450,80 @@ void handleRoot() {
   html += "</style></head><body>";
 
   html += "<div class='container'>";
-  html += "<header><h1>Sterownik Wentylatora</h1>";
-  html += "<a href='/' style='color:#0284c7;text-decoration:none;font-weight:600;font-size:14px;'>Odśwież</a></header>";
+  html += "<header><h1>Fan Controller</h1>";
+  html += "<a href='/' style='color:#0284c7;text-decoration:none;font-weight:600;font-size:14px;'>Refresh</a></header>";
 
   html += "<div class='grid'>";
 
-  // KARTA: Wykres
+  // CARD: Chart
   html += "<div class='card full'>";
-  html += "<div class='c-head'><span class='c-title'>Historia Temperatury (60 min)</span>";
-  html += "<span style='font-size:12px;color:#64748b;'>Próbki co 1 min</span></div>";
+  html += "<div class='c-head'><span class='c-title'>Temperature History (60 min)</span>";
+  html += "<span style='font-size:12px;color:#64748b;'>Samples every 1 min</span></div>";
   html += generateSvgChart();
   html += "</div>";
 
-  // KARTA: Status Główny
+  // CARD: Main Status
   html += "<div class='card'>";
-  html += "<div class='c-head'><span class='c-title'>Stan Bieżący</span>";
+  html += "<div class='c-head'><span class='c-title'>Current Status</span>";
   if (isPaused) {
-    html += "<span class='badge b-pause'>PAUZA</span>";
+    html += "<span class='badge b-pause'>PAUSE</span>";
   } else if (isMosfetOn) {
-    html += "<span class='badge b-on'>PRACA</span>";
+    html += "<span class='badge b-on'>RUNNING</span>";
   } else {
-    html += "<span class='badge b-off'>CZUWANIE</span>";
+    html += "<span class='badge b-off'>STANDBY</span>";
   }
   html += "</div>";
-  html += "<div class='metric'>" + (currentTemp > -50 ? String(currentTemp, 1) + " °C" : "Błąd czujnika") + "</div>";
-  html += "<p style='color:#94a3b8;font-size:14px;'>Obroty PWM: <b>" + String(currentPwmPercent) + "%</b></p>";
+  html += "<div class='metric'>" + (currentTemp > -50 ? String(currentTemp, 1) + " °C" : "Sensor error") + "</div>";
+  html += "<p style='color:#94a3b8;font-size:14px;'>PWM Speed: <b>" + String(currentPwmPercent) + "%</b></p>";
   
   if (isPaused) {
     long sec = (pauseEndTime - millis()) / 1000;
     if (sec < 0) sec = 0;
-    html += "<p style='color:#f59e0b;font-size:14px;margin-top:8px;'>Wznowienie za: <b>" + String(sec) + "s</b></p>";
+    html += "<p style='color:#f59e0b;font-size:14px;margin-top:8px;'>Resume in: <b>" + String(sec) + "s</b></p>";
   } else {
     html += "<form action='/pause' method='POST' style='margin-top:15px;'>";
-    html += "<label>Wyłączenie czasowe (sekundy):</label>";
+    html += "<label>Timed shutdown (seconds):</label>";
     html += "<div style='display:flex;gap:10px;'>";
     html += "<input type='number' name='duration' value='60' style='margin-top:16px;'>";
-    html += "<button type='submit' class='btn-orange'>Zatrzymaj</button></div></form>";
+    html += "<button type='submit' class='btn-orange'>Stop</button></div></form>";
   }
   html += "</div>";
 
-  // KARTA: Krzywa
+  // CARD: Curve
   html += "<div class='card'>";
-  html += "<div class='c-head'><span class='c-title'>Krzywa Wentylatora</span></div>";
+  html += "<div class='c-head'><span class='c-title'>Fan Curve</span></div>";
   html += "<form action='/update' method='POST'>";
   html += "<label>Start MOSFET (°C):</label><input type='number' step='0.5' name='t_min' value='" + String(tempMin) + "'>";
   html += "<label>Stop MOSFET (°C):</label><input type='number' step='0.5' name='t_off' value='" + String(tempOff) + "'>";
   html += "<label>Max 100% PWM (°C):</label><input type='number' step='0.5' name='t_max' value='" + String(tempMax) + "'>";
-  html += "<button type='submit' class='btn-blue'>Zapisz progi</button></form>";
+  html += "<button type='submit' class='btn-blue'>Save thresholds</button></form>";
   html += "</div>";
 
-  // KARTA: ARGB
+  // CARD: ARGB
   html += "<div class='card'>";
-  html += "<div class='c-head'><span class='c-title'>Podświetlenie ARGB</span></div>";
+  html += "<div class='c-head'><span class='c-title'>ARGB Lighting</span></div>";
   html += "<form action='/rgb' method='POST'>";
-  html += "<label>Tryb świecenia:</label><select name='rgb_mode'>";
-  html += "<option value='0' " + String(rgbMode == 0 ? "selected" : "") + ">Auto (wg temperatury)</option>";
-  html += "<option value='1' " + String(rgbMode == 1 ? "selected" : "") + ">Stały kolor (Hex)</option>";
-  html += "<option value='2' " + String(rgbMode == 2 ? "selected" : "") + ">Tęcza</option></select>";
+  html += "<label>Lighting mode:</label><select name='rgb_mode'>";
+  html += "<option value='0' " + String(rgbMode == 0 ? "selected" : "") + ">Auto (by temperature)</option>";
+  html += "<option value='1' " + String(rgbMode == 1 ? "selected" : "") + ">Solid color (Hex)</option>";
+  html += "<option value='2' " + String(rgbMode == 2 ? "selected" : "") + ">Rainbow</option></select>";
   
   char hexColor[8];
   sprintf(hexColor, "#%02X%02X%02X", customR, customG, customB);
-  html += "<label>Wybór barwy stałej:</label><input type='color' name='rgb_color' value='" + String(hexColor) + "'>";
-  html += "<label>Jasność (0-255):</label><input type='number' min='0' max='255' name='rgb_bright' value='" + String(rgbBrightness) + "'>";
-  html += "<button type='submit' class='btn-purple'>Zastosuj ARGB</button></form>";
+  html += "<label>Solid color selection:</label><input type='color' name='rgb_color' value='" + String(hexColor) + "'>";
+  html += "<label>Brightness (0-255):</label><input type='number' min='0' max='255' name='rgb_bright' value='" + String(rgbBrightness) + "'>";
+  html += "<button type='submit' class='btn-purple'>Apply ARGB</button></form>";
   html += "</div>";
 
-  // KARTA: OLED
+  // CARD: OLED
   html += "<div class='card'>";
-  html += "<div class='c-head'><span class='c-title'>Ekran OLED</span>";
-  html += "<span class='badge " + String(isOledAwake ? "b-on" : "b-off") + "'>" + String(isOledAwake ? "WŁĄCZONY" : "UŚPIONY") + "</span></div>";
+  html += "<div class='c-head'><span class='c-title'>OLED Display</span>";
+  html += "<span class='badge " + String(isOledAwake ? "b-on" : "b-off") + "'>" + String(isOledAwake ? "ON" : "SLEEPING") + "</span></div>";
   html += "<form action='/oled_wake' method='POST'>";
-  html += "<button type='submit' class='btn-gray'>Wybudź ekran (10 min)</button></form>";
+  html += "<button type='submit' class='btn-gray'>Wake display (10 min)</button></form>";
   html += "<form action='/animation' method='POST' style='margin-top:20px; border-top:1px solid #1e2638; padding-top:15px;'>";
-  html += "<label style='cursor:pointer;'><input type='checkbox' name='anim_en' value='1' " + String(enableAnimations ? "checked" : "") + "> Pokaż animację obrotów</label>";
-  html += "<button type='submit' class='btn-blue'>Zapisz ustawienie</button></form>";
+  html += "<label style='cursor:pointer;'><input type='checkbox' name='anim_en' value='1' " + String(enableAnimations ? "checked" : "") + "> Show rotation animation</label>";
+  html += "<button type='submit' class='btn-blue'>Save setting</button></form>";
   html += "</div>";
 
   html += "</div></div></body></html>";
